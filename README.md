@@ -1,4 +1,5 @@
-<pre>A set of tools for use in the experiment "Directing attention in contemporary composition with timbre."
+<pre>A set of tools for use in the experiment "Directing attention in contemporary 
+composition with timbre."
 
 Max Henry
 Xiaohan Bao
