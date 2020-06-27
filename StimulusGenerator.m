@@ -2,6 +2,8 @@
 %           Adjust loudness as appropriate to duos/solos (for cues).
 %           Make cues.
 %           Make probes.
+%           Method to export wavfiles.
+%               --> (string manipulation stuff)
 
 classdef StimulusGenerator < handle
     %
@@ -102,7 +104,6 @@ classdef StimulusGenerator < handle
         end
         
         function obj = matchLength(obj)
-
             if length(obj.x1) > length(obj.x2)
                 obj.x2 = [obj.x2; zeros(length(obj.x1) - length(obj.x2), 1)];
             else
