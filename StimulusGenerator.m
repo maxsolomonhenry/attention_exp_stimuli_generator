@@ -1,3 +1,8 @@
+%   TODO:   Add desctructor.
+%           Adjust loudness as appropriate to duos/solos (for cues).
+%           Make cues.
+%           Make probes.
+
 classdef StimulusGenerator < handle
     %
     %   Class for generating loudness-matched stimuli with random vibrato.
@@ -19,6 +24,16 @@ classdef StimulusGenerator < handle
         x1Vib;
         x2Vib;
         
+        MixNoVib;
+        MixVib1;
+        MixVib2;
+        
+        Cue1;
+        Cue2;
+        
+        Probe1;
+        Probe2;
+        
     end
     
     properties (Constant)
@@ -26,9 +41,9 @@ classdef StimulusGenerator < handle
         %   Settings for artificial vibrato.
         
         VibRate = 11;
-        VibDepth = 10;
+        VibDepth = 15;
         VibCycles = 3;
-        NoVibBuffer = 1;
+        NoVibBuffer = 1.5;
         
     end
     
@@ -43,7 +58,19 @@ classdef StimulusGenerator < handle
             
             obj.inputCheck();
             obj.matchLoudness();
+            
             obj.makeVibStim();
+            obj.makeMixes();
+        end
+        
+        function obj = makeMixes(obj)
+            obj.MixNoVib = obj.x1 + obj.x2;
+            obj.MixVib1 = obj.x1Vib + obj.x2;
+            obj.MixVib2 = obj.x1 + obj.x2Vib;
+            
+            obj.MixNoVib = obj.MixNoVib/max(obj.MixNoVib);
+            obj.MixVib1 = obj.MixVib1/max(obj.MixVib1);
+            obj.MixVib2 = obj.MixVib2/max(obj.MixVib2);
         end
         
         function obj = inputCheck(obj) 
