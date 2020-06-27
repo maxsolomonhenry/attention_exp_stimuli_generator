@@ -1,9 +1,8 @@
 %   TODO:   Add desctructor.
 %           Adjust loudness as appropriate to duos/solos (for cues).
-%           Make cues.
-%           Make probes.
+%           Make probes. (string parsing? maybe external)
+%           Method to audition everything // then:
 %           Method to export wavfiles.
-%               --> (string manipulation stuff)
 
 classdef StimulusGenerator < handle
     %
