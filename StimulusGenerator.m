@@ -1,4 +1,4 @@
-classdef StimulusGenerator
+classdef StimulusGenerator < handle
     %
     %   Class for generating loudness-matched stimuli with random vibrato.
     %
