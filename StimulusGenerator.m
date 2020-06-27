@@ -40,12 +40,15 @@ classdef StimulusGenerator < handle
     
     properties (Constant)
         
-        %   Settings for artificial vibrato.
-        
+        %   Settings for artificial vibrato.        
         VibRate = 11;
         VibDepth = 15;
         VibCycles = 3;
         NoVibBuffer = 1.5;
+        
+        %   Settings for cues.
+        CueLength = 1.5;
+        CueFade = 0.01;
         
     end
     
@@ -61,8 +64,24 @@ classdef StimulusGenerator < handle
             obj.inputCheck();
             obj.matchLoudness();
             
+            obj.makeCues();
             obj.makeVibStim();
             obj.makeMixes();
+        end
+        
+        function obj = makeCues(obj)
+            CueLengthInSamps = floor(obj.CueLength * obj.fs);
+            FadeSamps = floor(obj.CueFade * obj.fs);
+            Window = hamming(2 * FadeSamps);
+            
+            obj.Cue1 = obj.x1(1:CueLengthInSamps);
+            obj.Cue2 = obj.x2(1:CueLengthInSamps);
+            
+            %   Apply fade-out
+            obj.Cue1(end-FadeSamps + 1:end) = ...
+                obj.Cue1(end-FadeSamps+1:end) .* Window(FadeSamps+1:end);
+            obj.Cue2(end-FadeSamps + 1:end) = ...
+                obj.Cue2(end-FadeSamps+1:end) .* Window(FadeSamps+1:end);
         end
         
         function obj = makeMixes(obj)
