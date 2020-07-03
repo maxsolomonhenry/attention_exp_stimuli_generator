@@ -15,26 +15,4 @@ clearvars;
 
 Tester = StimulusGenerator('Melody1_Tpt.wav', 'Melody1_Vl.wav');
 
-%   Audition cues.
-soundsc(Tester.Cue1, Tester.fs);
-pause(length(Tester.Cue1)/Tester.fs + 0.5);
-
-soundsc(Tester.Cue2, Tester.fs);
-pause(length(Tester.Cue2)/Tester.fs + 0.5);
-
-%   Audition vibrato and vibrato mixes.
-soundsc(Tester.x1Vib, Tester.fs);
-pause(length(Tester.x1)/Tester.fs);
-
-soundsc(Tester.x2Vib, Tester.fs);
-pause(length(Tester.x1)/Tester.fs);
-
-%   Audition mixes.
-soundsc(Tester.MixNoVib, Tester.fs);
-pause(length(Tester.x1)/Tester.fs);
-
-soundsc(Tester.MixVib1, Tester.fs);
-pause(length(Tester.x1)/Tester.fs);
-
-soundsc(Tester.MixVib2, Tester.fs);
-pause(length(Tester.x1)/Tester.fs);
+Tester.auditionStimuli();

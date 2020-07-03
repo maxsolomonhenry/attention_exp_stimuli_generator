@@ -1,8 +1,9 @@
 %   TODO:   Add desctructor.
-%           Adjust loudness as appropriate to duos/solos (for cues).
+%           Adjust loudness as appropriate to duos/solos (for cues).-
 %           Make probes. (string parsing? maybe external)
-%           Method to audition everything // then:
+%           √   Method to audition everything // then:
 %           Method to export wavfiles.
+%           FIX: Playback is clipping.
 
 classdef StimulusGenerator < handle
     %
@@ -47,8 +48,10 @@ classdef StimulusGenerator < handle
         
         %   Settings for cues.
         CueLength = 1.5;
-        CueFade = 0.01;
+        CueFade = 0.1;
         
+        %   Output ceiling
+        EPS = 0.01;
     end
     
     methods
@@ -63,9 +66,15 @@ classdef StimulusGenerator < handle
             obj.inputCheck();
             obj.matchLoudness();
             
-            obj.makeCues();
             obj.makeVibStim();
             obj.makeMixes();
+            obj.makeCues();
+        end
+        
+        function obj = makeMixes(obj)
+            obj.MixNoVib = obj.x1 + obj.x2;
+            obj.MixVib1 = obj.x1Vib + obj.x2;
+            obj.MixVib2 = obj.x1 + obj.x2Vib;
         end
         
         function obj = makeCues(obj)
@@ -82,17 +91,36 @@ classdef StimulusGenerator < handle
             obj.Cue2(end-FadeSamps + 1:end) = ...
                 obj.Cue2(end-FadeSamps+1:end) .* Window(FadeSamps+1:end);
         end
-        
-        function obj = makeMixes(obj)
-            obj.MixNoVib = obj.x1 + obj.x2;
-            obj.MixVib1 = obj.x1Vib + obj.x2;
-            obj.MixVib2 = obj.x1 + obj.x2Vib;
+
+        function auditionStimuli(obj)
+            CuePause = length(obj.Cue1)/obj.fs + 0.5;
+            StimPause = length(obj.x1)/obj.fs;
             
-            obj.MixNoVib = obj.MixNoVib/max(obj.MixNoVib);
-            obj.MixVib1 = obj.MixVib1/max(obj.MixVib1);
-            obj.MixVib2 = obj.MixVib2/max(obj.MixVib2);
+            disp('Auditioning cues...')
+            sound(obj.Cue1, obj.fs);
+            pause(CuePause);
+
+            sound(obj.Cue2, obj.fs);
+            pause(CuePause);
+
+            disp('Auditioning vibrato...')
+            sound(obj.x1Vib, obj.fs);
+            pause(StimPause);
+
+            sound(obj.x2Vib, obj.fs);
+            pause(StimPause);
+
+            disp('Auditioning mixes...')
+            sound(obj.MixNoVib, obj.fs);
+            pause(StimPause);
+
+            sound(obj.MixVib1, obj.fs);
+            pause(StimPause);
+
+            sound(obj.MixVib2, obj.fs);
+            pause(StimPause);
         end
-        
+
         function obj = inputCheck(obj) 
             obj.makeColumns();
             obj.checkMono();
@@ -130,10 +158,11 @@ classdef StimulusGenerator < handle
         end
         
         function obj = matchLoudness(obj)
+            %   Lower gain on louder sound to match quieter one.
             Mag1 = obj.calcPerceptMag(obj.x1);
             Mag2 = obj.calcPerceptMag(obj.x2);
 
-            if Mag1 > Mag2
+            if Mag1 < Mag2
                 obj.x2 = obj.x2 * Mag1/Mag2;
             else
                 obj.x1 = obj.x1 * Mag2/Mag1;
