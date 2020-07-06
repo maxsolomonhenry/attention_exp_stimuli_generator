@@ -1,9 +1,9 @@
 %   TODO:   Add desctructor.
-%           Adjust loudness as appropriate to duos/solos (for cues).-
+%           √   Adjust loudness as appropriate to duos/solos (for cues).-
 %           Make probes. (string parsing? maybe external)
 %           √   Method to audition everything // then:
-%           Method to export wavfiles.
-%           FIX: Playback is clipping.
+%           Method to export wavfiles. --> writeStimuli
+%           √   FIX: Playback is clipping.
 
 classdef StimulusGenerator < handle
     %
@@ -120,6 +120,12 @@ classdef StimulusGenerator < handle
             sound(obj.MixVib2, obj.fs);
             pause(StimPause);
         end
+        
+        function writeStimuli(obj)
+            % obj.Cue1 obj.Cue2, obj.MixVib1, obj.MixVib2, obj.MixNoVib
+            audiowrite(filename, y, obj.fs);
+            
+        end
 
         function obj = inputCheck(obj) 
             obj.makeColumns();
@@ -167,6 +173,10 @@ classdef StimulusGenerator < handle
             else
                 obj.x1 = obj.x1 * Mag2/Mag1;
             end
+            
+            %   Divide gain by half to avoid clipping later on.
+            obj.x1 = obj.x1/2;
+            obj.x2 = obj.x2/2;
         end
         
         function obj = makeVibStim(obj)
