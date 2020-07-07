@@ -1,4 +1,4 @@
-function Out = randomVibrato(Signal, fs, VibRate, VibDepth, Cycles, NoVibBuffer)
+function [Out, Location] = randomVibrato(Signal, fs, VibRate, VibDepth, Cycles, NoVibBuffer)
     %   Applies a brief artificial vibrato to an input signal. 
     %
     %   For use in the experiment "Directing attention in contemporary

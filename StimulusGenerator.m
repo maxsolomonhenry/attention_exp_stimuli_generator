@@ -1,9 +1,6 @@
 %   TODO:   Add desctructor.
-%           √   Adjust loudness as appropriate to duos/solos (for cues).-
 %           Make probes. (string parsing? maybe external)
-%           √   Method to audition everything // then:
-%           Method to export wavfiles. --> writeStimuli
-%           √   FIX: Playback is clipping.
+%           Onset detector for random vibrato (spec flux?)
 
 classdef StimulusGenerator < handle
     %
@@ -11,13 +8,19 @@ classdef StimulusGenerator < handle
     %
     %   For use in the experiment "Directing attention in contemporary
     %   composition with timbre," Henry, Bao and Regnier for the Music
-    %   Perception and Cognition Lab, McGill University. June 27, 2020.
+    %   Perception and Cognition Lab, McGill University. July 6, 2020.
     %
     
     properties
         
         Filename1;
         Filename2;
+
+        MelodyNum;
+        PartNum1;
+        PartNum2;
+        Instrument1;
+        Instrument2;
         
         x1;
         x2;
@@ -25,6 +28,10 @@ classdef StimulusGenerator < handle
         
         x1Vib;
         x2Vib;
+        
+        GainChange;
+        x1VibStart;
+        x2VibStart;
         
         MixNoVib;
         MixVib1;
@@ -52,6 +59,8 @@ classdef StimulusGenerator < handle
         
         %   Output ceiling
         EPS = 0.01;
+        
+        StimDir = "stims/";
     end
     
     methods
@@ -59,9 +68,11 @@ classdef StimulusGenerator < handle
         function obj = StimulusGenerator(Filename1, Filename2)
             obj.Filename1 = Filename1;
             obj.Filename2 = Filename2;
-            
+                        
             [obj.x1, obj.fs] = audioread(Filename1);
             [obj.x2, ~] = audioread(Filename2);
+            
+            obj.parseFilenames();
             
             obj.inputCheck();
             obj.matchLoudness();
@@ -69,6 +80,26 @@ classdef StimulusGenerator < handle
             obj.makeVibStim();
             obj.makeMixes();
             obj.makeCues();
+        end
+        
+        function obj = parseFilenames(obj)
+            Basename1 = obj.getBasename(obj.Filename1);
+            Basename2 = obj.getBasename(obj.Filename2);
+            
+            Split1 = split(Basename1, '_');
+            Split2 = split(Basename2, '_');
+            
+            if string(Split1(1)) ~= string(Split2(1))
+                error("Melody numbers don\'t match. Please check the files and try again.");
+            end
+            
+            obj.MelodyNum = string(Split1(1));
+            
+            obj.PartNum1 = string(Split1(2));
+            obj.Instrument1 = string(Split1(3));
+            
+            obj.PartNum2 = string(Split2(2));
+            obj.Instrument2 = string(Split2(3));
         end
         
         function obj = makeMixes(obj)
@@ -93,40 +124,153 @@ classdef StimulusGenerator < handle
         end
 
         function auditionStimuli(obj)
-            CuePause = length(obj.Cue1)/obj.fs + 0.5;
-            StimPause = length(obj.x1)/obj.fs;
             
             disp('Auditioning cues...')
-            sound(obj.Cue1, obj.fs);
-            pause(CuePause);
-
-            sound(obj.Cue2, obj.fs);
-            pause(CuePause);
+            obj.auditionCues();
 
             disp('Auditioning vibrato...')
-            sound(obj.x1Vib, obj.fs);
-            pause(StimPause);
-
-            sound(obj.x2Vib, obj.fs);
-            pause(StimPause);
+            obj.auditionVibStim();
 
             disp('Auditioning mixes...')
-            sound(obj.MixNoVib, obj.fs);
-            pause(StimPause);
+            obj.auditionMixes();
+        end
+        
+        function auditionCues(obj, WhichCue)
+            DoBoth = false;
+            CuePause = length(obj.Cue1)/obj.fs + 0.5;
+            
+            if nargin == 1
+                DoBoth = true;
+                WhichCue = 0;
+            end
+            
+            if (WhichCue == 1 || DoBoth)
+                sound(obj.Cue1, obj.fs);
+                pause(CuePause);
+            end
 
-            sound(obj.MixVib1, obj.fs);
-            pause(StimPause);
+            if (WhichCue == 2 || DoBoth)
+                sound(obj.Cue2, obj.fs);
+                pause(CuePause);
+            end
+        end
+        
+        function auditionVibStim(obj, WhichVib)
+            DoBoth = false;            
+            StimPause = length(obj.x1)/obj.fs;
+            
+            if nargin == 1
+                DoBoth = true;
+                WhichVib = 0;
+            end
+            
+            if (WhichVib == 1 || DoBoth)
+                sound(obj.x1Vib, obj.fs);
+                pause(StimPause);
+            end
 
-            sound(obj.MixVib2, obj.fs);
-            pause(StimPause);
+            if (WhichVib == 2 || DoBoth)
+                sound(obj.x2Vib, obj.fs);
+                pause(StimPause);
+            end
+        end
+        
+        function auditionMixes(obj, WhichMix)
+            DoAll = false;
+            StimPause = length(obj.x1)/obj.fs;
+            
+            if nargin == 1
+                DoAll = true;
+                WhichMix = 0;
+            end
+
+            if (WhichMix == 1 || DoAll)
+                sound(obj.MixVib1, obj.fs);
+                pause(StimPause);
+            end
+
+            if (WhichMix == 2 || DoAll)
+                sound(obj.MixVib2, obj.fs);
+                pause(StimPause);
+            end
+            
+            if (WhichMix == 3 || DoAll)
+                sound(obj.MixNoVib, obj.fs);
+                pause(StimPause);
+            end
+            
         end
         
         function writeStimuli(obj)
-            % obj.Cue1 obj.Cue2, obj.MixVib1, obj.MixVib2, obj.MixNoVib
-            audiowrite(filename, y, obj.fs);
+            disp('Writing files...')
+            obj.writeCues();
+            obj.writeMixes();
+            
+            obj.makeLog();
+            disp('Done.')
+        end
+        
+        function writeCues(obj, WhichCue)
+            DoBoth = false;
+            
+            if nargin == 1
+                DoBoth = true;
+                WhichCue = 0;
+            end
+            
+            if (WhichCue == 1 || DoBoth)
+                Basename1 = obj.getBasename(obj.Filename1);
+                audiowrite(obj.StimDir + Basename1 + "_q.wav", obj.Cue1, obj.fs);
+            end
+            
+            if (WhichCue == 2 || DoBoth)
+                Basename2 = obj.getBasename(obj.Filename2); 
+                audiowrite(obj.StimDir + Basename2 + "_q.wav", obj.Cue2, obj.fs);
+            end
+        end
+        
+        function writeMixes(obj, WhichMix)
+            DoAll = false;
+            
+            MixName = obj.MelodyNum + "_" + obj.PartNum1 + "_" + obj.Instrument1 + ...
+                "_" + obj.PartNum2 + "_" + obj.Instrument2;
+            
+            
+            if nargin == 1
+                DoAll = true;
+                WhichMix = 0;
+            end
+            
+            if (WhichMix == 1 || DoAll)
+                audiowrite(obj.StimDir + MixName + "_V_" + obj.PartNum1 + ".wav", ...
+                    obj.MixVib1, obj.fs);
+            end
+            
+            if (WhichMix == 2 || DoAll)
+                audiowrite(obj.StimDir + MixName + "_V_" + obj.PartNum2 + ".wav", ...
+                    obj.MixVib2, obj.fs);
+            end
+            
+            if (WhichMix == 3 || DoAll)
+                audiowrite(obj.StimDir + MixName + "_N.wav", obj.MixNoVib, obj.fs);
+            end
+            
             
         end
 
+        function makeLog(obj)
+            LogFilename = obj.MelodyNum + "_" + obj.Instrument1 + ...
+                "_" + obj.Instrument2 + "_log.txt";
+            Today = datestr(datetime);
+            
+            fid = fopen(LogFilename, 'wt');
+            fprintf(fid, "Gain change:\t%s\n", obj.GainChange);
+            fprintf(fid, obj.Filename1 + "\t vib start:\t%s\n", obj.x1VibStart);
+            fprintf(fid, obj.Filename2 + "\t vib start:\t%s\n", obj.x2VibStart);
+            fprintf(fid, "\nDate:\t" + Today);
+            fclose(fid);
+        end
+        
         function obj = inputCheck(obj) 
             obj.makeColumns();
             obj.checkMono();
@@ -170,21 +314,40 @@ classdef StimulusGenerator < handle
 
             if Mag1 < Mag2
                 obj.x2 = obj.x2 * Mag1/Mag2;
+                obj.GainChange = obj.Filename2 + " * " + ...
+                    num2str(Mag1/Mag2);
             else
                 obj.x1 = obj.x1 * Mag2/Mag1;
+                obj.GainChange = obj.Filename1 + " * " + ...
+                    num2str(Mag2/Mag1);
             end
             
-            %   Divide gain by half to avoid clipping later on.
+            %   Divide gain by half to avoid clipping in mixes.
             obj.x1 = obj.x1/2;
             obj.x2 = obj.x2/2;
         end
         
-        function obj = makeVibStim(obj)
-            obj.x1Vib = randomVibrato(obj.x1, obj.fs, obj.VibRate, obj.VibDepth, ...
-                obj.VibCycles, obj.NoVibBuffer);
+        function obj = makeVibStim(obj, WhichVib)
+            DoBoth = false;
             
-            obj.x2Vib = randomVibrato(obj.x2, obj.fs, obj.VibRate, obj.VibDepth, ...
-                obj.VibCycles, obj.NoVibBuffer);
+            if nargin == 1
+                DoBoth = true;
+                WhichVib = 0;
+            end
+            
+            if (WhichVib == 1 || DoBoth)
+                [obj.x1Vib, Location1] = randomVibrato(obj.x1, obj.fs, ...
+                    obj.VibRate, obj.VibDepth, obj.VibCycles, obj.NoVibBuffer);
+                
+                obj.x1VibStart = Location1 / obj.fs;
+            end
+            
+            if (WhichVib == 2 || DoBoth)
+                [obj.x2Vib, Location2] = randomVibrato(obj.x2, obj.fs, ...
+                    obj.VibRate, obj.VibDepth, obj.VibCycles, obj.NoVibBuffer);
+                
+                obj.x2VibStart = Location2 / obj.fs;
+            end
         end
         
         function PerceptMag = calcPerceptMag(obj, x)
@@ -196,6 +359,11 @@ classdef StimulusGenerator < handle
     end
     
     methods(Static)
+        
+        function Basename = getBasename(Filename)
+            Splitname = split(Filename, '.');
+            Basename = Splitname(1);
+        end
         
         function Phons = sones2phons(Sones)
             Phons = 40 + 10*log2(Sones);
