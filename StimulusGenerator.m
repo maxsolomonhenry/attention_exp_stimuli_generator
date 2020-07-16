@@ -58,7 +58,7 @@ classdef StimulusGenerator < handle
         CUE_FADE = 0.1;
         
         %   Output ceiling.
-        MAGNITUDE_REF = 10000
+        MAGNITUDE_REF = 5e4
         EPS = 0.01;
         
         %   Directory with individual tracks.
