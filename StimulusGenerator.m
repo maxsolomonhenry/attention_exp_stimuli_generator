@@ -8,7 +8,7 @@ classdef StimulusGenerator < handle
     %
     %   For use in the experiment "Directing attention in contemporary
     %   composition with timbre," Henry, Bao and Regnier for the Music
-    %   Perception and Cognition Lab, McGill University. July 6, 2020.
+    %   Perception and Cognition Lab, McGill University. Summer, 2020.
     %
     
     properties
@@ -48,23 +48,26 @@ classdef StimulusGenerator < handle
     properties (Constant)
         
         %   Settings for artificial vibrato.        
-        VibRate = 11;
-        VibDepth = 15;
-        VibCycles = 3;
-        NoVibBuffer = 1.5;
+        VIB_RATE = 11;
+        VIB_DEPTH = 15;
+        VIB_CYCLES = 3;
+        NO_VIB_BUFFER = 1.5;
         
         %   Settings for cues.
-        CueLength = 1.5;
-        CueFade = 0.1;
+        CUE_LENGTH = 1.5;
+        CUE_FADE = 0.1;
         
-        %   Output ceiling
+        %   Output ceiling.
+        MAGNITUDE_REF = 10000
         EPS = 0.01;
         
-        StimDir = "stims/";
+        %   Directory with individual tracks.
+        STIM_DIR = "stims/";
     end
     
     methods
         
+        %   Constructor
         function obj = StimulusGenerator(Filename1, Filename2)
             obj.Filename1 = Filename1;
             obj.Filename2 = Filename2;
@@ -109,8 +112,8 @@ classdef StimulusGenerator < handle
         end
         
         function obj = makeCues(obj)
-            CueLengthInSamps = floor(obj.CueLength * obj.fs);
-            FadeSamps = floor(obj.CueFade * obj.fs);
+            CueLengthInSamps = floor(obj.CUE_LENGTH * obj.fs);
+            FadeSamps = floor(obj.CUE_FADE * obj.fs);
             Window = hamming(2 * FadeSamps);
             
             obj.Cue1 = obj.x1(1:CueLengthInSamps);
@@ -220,12 +223,12 @@ classdef StimulusGenerator < handle
             
             if (WhichCue == 1 || DoBoth)
                 Basename1 = obj.getBasename(obj.Filename1);
-                audiowrite(obj.StimDir + Basename1 + "_q.wav", obj.Cue1, obj.fs);
+                audiowrite(obj.STIM_DIR + Basename1 + "_q.wav", obj.Cue1, obj.fs);
             end
             
             if (WhichCue == 2 || DoBoth)
                 Basename2 = obj.getBasename(obj.Filename2); 
-                audiowrite(obj.StimDir + Basename2 + "_q.wav", obj.Cue2, obj.fs);
+                audiowrite(obj.STIM_DIR + Basename2 + "_q.wav", obj.Cue2, obj.fs);
             end
         end
         
@@ -242,17 +245,17 @@ classdef StimulusGenerator < handle
             end
             
             if (WhichMix == 1 || DoAll)
-                audiowrite(obj.StimDir + MixName + "_V_" + obj.PartNum1 + ".wav", ...
+                audiowrite(obj.STIM_DIR + MixName + "_V_" + obj.PartNum1 + ".wav", ...
                     obj.MixVib1, obj.fs);
             end
             
             if (WhichMix == 2 || DoAll)
-                audiowrite(obj.StimDir + MixName + "_V_" + obj.PartNum2 + ".wav", ...
+                audiowrite(obj.STIM_DIR + MixName + "_V_" + obj.PartNum2 + ".wav", ...
                     obj.MixVib2, obj.fs);
             end
             
             if (WhichMix == 3 || DoAll)
-                audiowrite(obj.StimDir + MixName + "_N.wav", obj.MixNoVib, obj.fs);
+                audiowrite(obj.STIM_DIR + MixName + "_N.wav", obj.MixNoVib, obj.fs);
             end
             
             
@@ -308,23 +311,21 @@ classdef StimulusGenerator < handle
         end
         
         function obj = matchLoudness(obj)
-            %   Lower gain on louder sound to match quieter one.
+            %   Match gains of both stimuli to magnitude reference.
             Mag1 = obj.calcPerceptMag(obj.x1);
             Mag2 = obj.calcPerceptMag(obj.x2);
 
-            if Mag1 < Mag2
-                obj.x2 = obj.x2 * Mag1/Mag2;
-                obj.GainChange = obj.Filename2 + " * " + ...
-                    num2str(Mag1/Mag2);
-            else
-                obj.x1 = obj.x1 * Mag2/Mag1;
-                obj.GainChange = obj.Filename1 + " * " + ...
-                    num2str(Mag2/Mag1);
-            end
+            obj.x1 = obj.x1 * obj.MAGNITUDE_REF/Mag1;
+            obj.GainChange = obj.Filename1 + " * " + ...
+                num2str(obj.MAGNITUDE_REF/Mag1);
             
+            obj.x2 = obj.x2 * obj.MAGNITUDE_REF/Mag2;
+            obj.GainChange = obj.Filename2 + " * " + ...
+                num2str(obj.MAGNITUDE_REF/Mag2);
+
             %   Divide gain by half to avoid clipping in mixes.
-            obj.x1 = obj.x1/2;
-            obj.x2 = obj.x2/2;
+%             obj.x1 = obj.x1/2;
+%             obj.x2 = obj.x2/2;
         end
         
         function obj = makeVibStim(obj, WhichVib)
@@ -337,14 +338,14 @@ classdef StimulusGenerator < handle
             
             if (WhichVib == 1 || DoBoth)
                 [obj.x1Vib, Location1] = randomVibrato(obj.x1, obj.fs, ...
-                    obj.VibRate, obj.VibDepth, obj.VibCycles, obj.NoVibBuffer);
+                    obj.VIB_RATE, obj.VIB_DEPTH, obj.VIB_CYCLES, obj.NO_VIB_BUFFER);
                 
                 obj.x1VibStart = Location1 / obj.fs;
             end
             
             if (WhichVib == 2 || DoBoth)
                 [obj.x2Vib, Location2] = randomVibrato(obj.x2, obj.fs, ...
-                    obj.VibRate, obj.VibDepth, obj.VibCycles, obj.NoVibBuffer);
+                    obj.VIB_RATE, obj.VIB_DEPTH, obj.VIB_CYCLES, obj.NO_VIB_BUFFER);
                 
                 obj.x2VibStart = Location2 / obj.fs;
             end
