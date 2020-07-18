@@ -1,76 +1,142 @@
-%   TODO:   turn into a class
-%           develop/implement criteria functions for "steadytimeline"
+%   TODO: adjustForVibratoLength is VERY SLOW (14s). Fix.
 
-function [Out, Location] = randomVibrato(Signal, fs, VibRate, VibDepth, Cycles, NoVibBuffer)
-    %   Applies a brief artificial vibrato to an input signal. 
+classdef RandomVibrato < handle
+    %   Class for generating vibrato at a random spot in a stimulus, given
+    %   certain criteria.
     %
     %   For use in the experiment "Directing attention in contemporary
     %   composition with timbre," Henry, Bao and Regnier for the Music
-    %   Perception and Cognition Lab, McGill University. June 24, 2020.
+    %   Perception and Cognition Lab, McGill University. Summer, 2020.
     %
-    %   Signal      -->     Input sound.
-    %   fs          -->     Sample rate.
-    %   VibRate     -->     Vibrato modulation rate in Hz.
-    %   VibDepth    -->     Peak depth of vibrato in sample-deviation.
-    %   Cycles      -->     Number of full cycles of frequency modulation.
-    %   NoVibBuffer -->     Time, in seconds, at beginning and end of signal
-    %                       that will not have vibrato.
-
-    Out = zeros(size(Signal));
-    VibratoLength = floor(fs/VibRate*Cycles);
     
-    %   Find random location to initiate vibrato.
-    Location = findRandomVibratoLoc(Signal, fs, VibratoLength, NoVibBuffer);
-    
-    %   Determine when to index vibrato modulator.
-    VibWindow = [zeros(Location, 1); (1:VibratoLength)'; ...
-        zeros(length(Signal) - (Location + VibratoLength), 1)];
-    
-    %   Vibrato depth timeline "windows" the modulation depth with hamming,
-    %   to prevent abrupt vibrato onset/offset artifacts.
-    DepthWindow = [zeros(Location, 1); VibDepth * hamming(VibratoLength); ...
-        zeros(length(Signal) - (Location + VibratoLength), 1)];
-
-    for n = 1:length(Signal)
-        Out(n) = sincInterp(Signal, n + DepthWindow(n) * ...
-                    (1  - cos(2*pi*VibRate*VibWindow(n)/fs)), fs);
+    properties
+        
+        Signal;
+        fs;
+        
+        Out;
+        
+        VibRate;
+        VibDepth;
+        Cycles;
+        NoVibBuffer;
+        
+        Location;
+        VibIndex;
+        VibModAmplitude;
+        
+        VibratoLength;
+        NoVibBufSamps;
+        SteadySectionsTimeline;
+        AdjustedTimeline;
+        VibStart;
     end
-
-end
-
-function VibratoLoc = findRandomVibratoLoc(Signal, fs, VibratoLength, NoVibBuffer)
     
-    SteadyTimeline = getSteadyTimeline(Signal, NoVibBuffer, fs);
-    VibStartCandidates = findStartCandidates(SteadyTimeline, VibratoLength);
-
-    VibratoLoc = round(rand * (length(Signal) - 2 * NoVibBuffer * fs - VibratoLength)) ... 
-        + NoVibBuffer * fs;
-end
-
-function SteadyTimeline = getSteadyTimeline(Signal, NoVibBuffer, fs)
-    %   TODO:   fill this function with various criteria, to build a
-    %           timeline of 1's and 0's.
-    
-    NoVibBufSamps = NoVibBuffer * fs;
-    
-    SteadyTimeline = [zeros(NoVibBufSamps, 1); ...
-        ones(length(Signal) - 2 * NoVibBufSamps, 1); ...
-        zeros(NoVibBufSamps, 1)];
-end
-
-function VibStartCandidates = findStartCandidates(SteadyTimeline, VibratoLength)
-    %   Note:   this assumes a "no vibrato buffer" that's longer than vibrato 
-    %           length.
-    %
-    %   Extends "no vibrato zone" backwards the length of the vibrato.
-    %
-    %   SteadyTimeline must be all 1's and 0's, (1 indicates no problems
-    %   for vibrato).
-
-    VibStartCandidates = SteadyTimeline;
-    
-    for i = (1:VibratoLength-1)
-        VibStartCandidates = VibStartCandidates .* ...
-            circshift(VibStartCandidates, -i);
+    properties (Constant)
     end
+    
+    methods
+        
+        %   Constructor
+        function obj = RandomVibrato(fs, VibRate, VibDepth, ...
+                Cycles, NoVibBuffer)
+            
+            %   fs          -->     Sample rate.
+            %   VibRate     -->     Vibrato modulation rate in Hz.
+            %   VibDepth    -->     Peak depth of vibrato in sample-deviation.
+            %   Cycles      -->     Number of full cycles of modulation.
+            %   NoVibBuffer -->     Time, in seconds, at beginning and end
+            %                       of signal that won't have vibrato.
+            
+            obj.fs = fs;           
+            obj.VibRate = VibRate;
+            obj.VibDepth = VibDepth;
+            
+            obj.NoVibBufSamps = NoVibBuffer * obj.fs;
+            obj.VibratoLength = floor(fs/obj.VibRate*Cycles);
+        end
+        
+        function Out = addVibrato(obj, Signal)
+            obj.Signal = Signal;
+            
+            obj.findVibratoStart();
+            obj.makeVibIndexAndAmplitude();
+            Out = obj.generateOutput();
+        end
+        
+        function findVibratoStart(obj)
+            obj.findSteadySections()
+            obj.adjustForVibratoLength()
+            obj.findRandomStartIndex()
+        end
+        
+        function obj = findSteadySections(obj)
+            %   TODO:   spectral flux/other critera here.
+            
+            obj.SteadySectionsTimeline = [zeros(obj.NoVibBufSamps, 1); ...
+                ones(length(obj.Signal) - 2 * obj.NoVibBufSamps, 1); ...
+                zeros(obj.NoVibBufSamps, 1)];
+        end
+        
+        function obj = adjustForVibratoLength(obj)
+            %   Extends "no vibrato start zone" backwards to compensate for
+            %   vibrato length.
+
+            if obj.VibratoLength > obj.NoVibBufSamps
+                warning(['Vibrato length is longer than specified start buffer. ' ...
+                    'Buffer will be extended to length of vibrato.']);
+            end
+            
+            obj.AdjustedTimeline = obj.SteadySectionsTimeline;
+            
+            for i = (1:obj.VibratoLength-1)
+                obj.AdjustedTimeline = obj.AdjustedTimeline .* ...
+                    circshift(obj.SteadySectionsTimeline, -i);
+            end
+        end
+        
+        function obj = findRandomStartIndex(obj)
+            if any(obj.AdjustedTimeline)
+                obj.VibStart = obj.randomIndex(obj.AdjustedTimeline);
+            else
+                error('No candidate indecies for vibrato found.')
+            end
+        end
+        
+        function obj = makeVibIndexAndAmplitude(obj)
+            %   Values to index the vibrato modulation oscillator.
+            obj.VibIndex = [zeros(obj.VibStart, 1); (1:obj.VibratoLength)'; ...
+                zeros(length(obj.Signal) - (obj.VibStart + obj.VibratoLength), 1)];
+            
+            %   Amplitude values for the vibrato oscillator (fades in/out).
+            obj.VibModAmplitude = [zeros(obj.VibStart, 1); ...
+                obj.VibDepth * hamming(obj.VibratoLength); ...
+                zeros(length(obj.Signal) - (obj.VibStart + obj.VibratoLength), 1)];
+        end
+        
+        function Out = generateOutput(obj)
+            %   Step through Signal with modulated fractional indicies to
+            %   build vibrato'ed output.
+            
+            Out = zeros(size(obj.Signal));
+            
+            for n = 1:length(obj.Signal)
+                Out(n) = sincInterp(obj.Signal, n + obj.VibModAmplitude(n) * ...
+                    (1  - cos(2*pi*obj.VibRate*obj.VibIndex(n)/obj.fs)), ...
+                        obj.fs);
+            end
+        end
+        
+    end
+    
+    methods(Static)
+        
+        function Out = randomIndex(Timeline)
+        NonZeroIndicies = find(Timeline);
+        i = randi(length(NonZeroIndicies));
+        Out = NonZeroIndicies(i);
+        end
+        
+    end
+    
 end

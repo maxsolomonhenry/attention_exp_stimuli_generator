@@ -29,7 +29,8 @@ classdef StimulusGenerator < handle
         x1Vib;
         x2Vib;
         
-        GainChange;
+        GainChange1;
+        GainChange2;
         x1VibStart;
         x2VibStart;
         
@@ -43,6 +44,7 @@ classdef StimulusGenerator < handle
         Probe1;
         Probe2;
         
+        VibGenerator;
     end
     
     properties (Constant)
@@ -75,6 +77,9 @@ classdef StimulusGenerator < handle
             [obj.x1, obj.fs] = audioread(Filename1);
             [obj.x2, ~] = audioread(Filename2);
             
+            obj.VibGenerator = RandomVibrato(obj.fs, obj.VIB_RATE, ...
+                obj.VIB_DEPTH, obj.VIB_CYCLES, obj.NO_VIB_BUFFER);
+            
             obj.parseFilenames();
             
             obj.inputCheck();
@@ -83,6 +88,7 @@ classdef StimulusGenerator < handle
             obj.makeVibStim();
             obj.makeMixes();
             obj.makeCues();
+            obj.makeLog()
         end
         
         function obj = parseFilenames(obj)
@@ -267,7 +273,8 @@ classdef StimulusGenerator < handle
             Today = datestr(datetime);
             
             fid = fopen(LogFilename, 'wt');
-            fprintf(fid, "Gain change:\t%s\n", obj.GainChange);
+            fprintf(fid, "Gain change x1:\t%s\n", obj.GainChange1);
+            fprintf(fid, "Gain change x2:\t%s\n", obj.GainChange2);
             fprintf(fid, obj.Filename1 + "\t vib start:\t%s\n", obj.x1VibStart);
             fprintf(fid, obj.Filename2 + "\t vib start:\t%s\n", obj.x2VibStart);
             fprintf(fid, "\nDate:\t" + Today);
@@ -316,11 +323,11 @@ classdef StimulusGenerator < handle
             Mag2 = obj.calcPerceptMag(obj.x2);
 
             obj.x1 = obj.x1 * obj.MAGNITUDE_REF/Mag1;
-            obj.GainChange = obj.Filename1 + " * " + ...
+            obj.GainChange1 = obj.Filename1 + " * " + ...
                 num2str(obj.MAGNITUDE_REF/Mag1);
             
             obj.x2 = obj.x2 * obj.MAGNITUDE_REF/Mag2;
-            obj.GainChange = obj.Filename2 + " * " + ...
+            obj.GainChange2 = obj.Filename2 + " * " + ...
                 num2str(obj.MAGNITUDE_REF/Mag2);
 
             %   Divide gain by half to avoid clipping in mixes.
@@ -337,16 +344,16 @@ classdef StimulusGenerator < handle
             end
             
             if (WhichVib == 1 || DoBoth)
-                [obj.x1Vib, Location1] = randomVibrato(obj.x1, obj.fs, ...
-                    obj.VIB_RATE, obj.VIB_DEPTH, obj.VIB_CYCLES, obj.NO_VIB_BUFFER);
-                
+                obj.x1Vib = obj.VibGenerator.addVibrato(obj.x1);
+                Location1 = obj.VibGenerator.VibStart;
+
                 obj.x1VibStart = Location1 / obj.fs;
             end
             
             if (WhichVib == 2 || DoBoth)
-                [obj.x2Vib, Location2] = randomVibrato(obj.x2, obj.fs, ...
-                    obj.VIB_RATE, obj.VIB_DEPTH, obj.VIB_CYCLES, obj.NO_VIB_BUFFER);
-                
+                obj.x2Vib = obj.VibGenerator.addVibrato(obj.x2);
+                Location2 = obj.VibGenerator.VibStart;   
+
                 obj.x2VibStart = Location2 / obj.fs;
             end
         end
