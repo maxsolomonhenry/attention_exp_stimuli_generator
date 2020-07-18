@@ -324,8 +324,8 @@ classdef StimulusGenerator < handle
                 num2str(obj.MAGNITUDE_REF/Mag2);
 
             %   Divide gain by half to avoid clipping in mixes.
-%             obj.x1 = obj.x1/2;
-%             obj.x2 = obj.x2/2;
+            obj.x1 = obj.x1/2;
+            obj.x2 = obj.x2/2;
         end
         
         function obj = makeVibStim(obj, WhichVib)
