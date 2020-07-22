@@ -13,8 +13,9 @@ end
 
 clearvars;
 
-profile on
+% profile on
 Tester = StimulusGenerator('M1_p1_Tpt.wav', 'M1_P2_Vln.wav');
-profile viewer
+% profile viewer
+% profile off
 
 Tester.auditionStimuli();

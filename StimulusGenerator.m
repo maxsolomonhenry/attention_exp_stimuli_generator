@@ -49,9 +49,9 @@ classdef StimulusGenerator < handle
     
     properties (Constant)
         
-        %   Settings for artificial vibrato.        
+        %   Settings for artificial vibrato.
         VIB_RATE = 11;
-        VIB_DEPTH = 15;
+        VIB_ALPHA = 0.005;
         VIB_CYCLES = 3;
         NO_VIB_BUFFER = 1.5;
         
@@ -78,7 +78,7 @@ classdef StimulusGenerator < handle
             [obj.x2, ~] = audioread(Filename2);
             
             obj.VibGenerator = RandomVibrato(obj.fs, obj.VIB_RATE, ...
-                obj.VIB_DEPTH, obj.VIB_CYCLES, obj.NO_VIB_BUFFER);
+                obj.VIB_ALPHA, obj.VIB_CYCLES, obj.NO_VIB_BUFFER);
             
             obj.parseFilenames();
             

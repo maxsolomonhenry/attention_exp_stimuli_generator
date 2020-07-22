@@ -24,9 +24,12 @@ end
 %   Example implementation.
 %
 
-VibGenerator = RandomVibrato(fs, 11, 10, 3, 1);
+Alpha = 0.01;
+fm = 11;
+
+VibGenerator = RandomVibrato(fs, fm, Alpha, 3, 1);
 
 Out = VibGenerator.addVibrato(x);
 
-spectrogram(Out, hamming(1024), 'yaxis');
+spectrogram(Out, hamming(1024), [], [], fs, 'yaxis');
 soundsc(Out, fs);
