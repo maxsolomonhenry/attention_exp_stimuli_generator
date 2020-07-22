@@ -1,15 +1,29 @@
-%   TODO:   Add desctructor.
-%           Make probes. (string parsing? maybe external)
-%           Onset detector for random vibrato (spec flux?)
+%   Class for generating loudness-matched stimuli with random vibrato.
+%
+%   For use in the experiment "Directing attention in contemporary
+%   composition with timbre," Henry, Bao and Regnier for the Music
+%   Perception and Cognition Lab, McGill University. Summer, 2020.
+%
+%   StimulusGenerator(Filename1, Filename2)
+%
+%   This class expects wavefiles named according to the following
+%   convention:
+%
+%   "M[melody number]_P[part number]_[Instrument abbreviation].wav"
+%
+%   where:
+%
+%   melody number       -->     Unique identifier for duet melody.
+%   part number         -->     1 or 2, to indicate "top" or "bottom" of
+%                               staff.
+%   Instrument abbr.    -->     For the original experiment, either "Tpt"
+%                               for trumpet, or "Vln" for violin. 
+%
+%           e.g., "M1_P1_Tpt.wav"
 
 classdef StimulusGenerator < handle
-    %
-    %   Class for generating loudness-matched stimuli with random vibrato.
-    %
-    %   For use in the experiment "Directing attention in contemporary
-    %   composition with timbre," Henry, Bao and Regnier for the Music
-    %   Perception and Cognition Lab, McGill University. Summer, 2020.
-    %
+    %   TODO:   Add desctructor.
+    %           Make probes. (string parsing? maybe external)
     
     properties
         
