@@ -1,14 +1,34 @@
-%   TODO: adjustForVibratoLength is VERY SLOW (14s). Fix.
+%   Class for generating vibrato at a random spot in a stimulus, given
+%   certain criteria of note steadiness (spectral flux).
+%
+%   For use in the experiment "Directing attention in contemporary
+%   composition with timbre," Henry, Bao and Regnier for the Music
+%   Perception and Cognition Lab, McGill University. Summer, 2020.
+%
+%   RandomVibrato(fs, VibRate, Alpha, Cycles, NoVibBuffer)            
+%
+%   fs          -->     Sample rate.
+%   VibRate     -->     Vibrato modulation rate in Hz.
+%   Alpha       -->     Vibrato depth as +/- max. pitch deviation (percent).
+%   Cycles      -->     Number of full cycles of modulation.
+%   NoVibBuffer -->     Time, in seconds, at beginning and end
+%                       of signal that won't have vibrato.
+%
+%   sample deviation = Alpha * fs / VibRate, as per:
+%
+%   Dutilleux, P., M. Holters, S. Disch, and U. Zölzer. 2011. “Modulators 
+%       and Demodulators.” In DAFX: Digital audio effects, edited by Udo 
+%       Zölzer, 83–99. https://doi.org/10.1002/9781119991298.ch3.
+%
+%   Dattorro, Jon. 1997. “Part 2: Delay-line modulation and chorus.” 
+%       Journal of the Audio Engineering Society 45 (10): 25.
 
-classdef RandomVibrato < handle
-    %   Class for generating vibrato at a random spot in a stimulus, given
-    %   certain criteria.
-    %
-    %   For use in the experiment "Directing attention in contemporary
-    %   composition with timbre," Henry, Bao and Regnier for the Music
-    %   Perception and Cognition Lab, McGill University. Summer, 2020.
-    %
-    
+
+classdef RandomVibrato < handle    
+%   TODO:   adjustForVibratoLength is VERY SLOW (14s).
+%           Alpha --> should be divided by two? (distance max to min dev.)
+%           Flux thresholding is broken.
+
     properties
         
         Signal;
@@ -17,7 +37,7 @@ classdef RandomVibrato < handle
         Out;
         
         VibRate;
-        VibDepth;
+        SamplesDeviation;
         Cycles;
         NoVibBuffer;
         
@@ -30,32 +50,30 @@ classdef RandomVibrato < handle
         SteadySectionsTimeline;
         AdjustedTimeline;
         VibStart;
+        
+        InterpolatedFlux;
+        GatedFlux;
     end
     
     properties (Constant)
+        FLUX_THRESHOLD = 0.5;
     end
     
     methods
         
         %   Constructor
-        function obj = RandomVibrato(fs, VibRate, VibDepth, ...
+        function obj = RandomVibrato(fs, VibRate, Alpha, ...
                 Cycles, NoVibBuffer)
-            
-            %   fs          -->     Sample rate.
-            %   VibRate     -->     Vibrato modulation rate in Hz.
-            %   VibDepth    -->     Peak depth of vibrato in sample-deviation.
-            %   Cycles      -->     Number of full cycles of modulation.
-            %   NoVibBuffer -->     Time, in seconds, at beginning and end
-            %                       of signal that won't have vibrato.
-            
+
             obj.fs = fs;           
             obj.VibRate = VibRate;
-            obj.VibDepth = VibDepth;
-            
+
+            obj.SamplesDeviation = Alpha * fs / VibRate;
             obj.NoVibBufSamps = NoVibBuffer * obj.fs;
             obj.VibratoLength = floor(fs/obj.VibRate*Cycles);
         end
         
+        %   Main method, adds vibrato given input signal.
         function Out = addVibrato(obj, Signal)
             obj.Signal = Signal;
             
@@ -71,11 +89,31 @@ classdef RandomVibrato < handle
         end
         
         function obj = findSteadySections(obj)
-            %   TODO:   spectral flux/other critera here.
-            
+            %   Introduce "no vib buffer" at start/end.
             obj.SteadySectionsTimeline = [zeros(obj.NoVibBufSamps, 1); ...
                 ones(length(obj.Signal) - 2 * obj.NoVibBufSamps, 1); ...
                 zeros(obj.NoVibBufSamps, 1)];
+            
+            obj.getGatedFlux();
+            
+            %   Exclude regions aboe spectral flux threshold.
+            obj.SteadySectionsTimeline = obj.SteadySectionsTimeline .* ...
+                obj.GatedFlux;       
+        end
+        
+        function obj = getGatedFlux(obj)
+            obj.getInterpolatedSpecFlux();
+%             obj.InterpolatedFlux = [diff(obj.InterpolatedFlux, 1); 0];
+            obj.GatedFlux = abs(obj.InterpolatedFlux) < obj.FLUX_THRESHOLD;
+        end
+        
+        function obj = getInterpolatedSpecFlux(obj)
+            N = length(obj.Signal);
+            Flux = spectralFlux(obj.Signal, obj.fs);
+            HopSize = round(obj.fs*0.02);
+            obj.InterpolatedFlux = interp1(1:length(Flux), Flux, (1:N)/HopSize)';
+            obj.InterpolatedFlux = obj.InterpolatedFlux / ...
+                max(abs(obj.InterpolatedFlux));
         end
         
         function obj = adjustForVibratoLength(obj)
@@ -89,10 +127,11 @@ classdef RandomVibrato < handle
             
             obj.AdjustedTimeline = obj.SteadySectionsTimeline;
             
-            for i = (1:obj.VibratoLength-1)
+            for i = (1:obj.VibratoLength - 1)
                 obj.AdjustedTimeline = obj.AdjustedTimeline .* ...
                     circshift(obj.SteadySectionsTimeline, -i);
             end
+
         end
         
         function obj = findRandomStartIndex(obj)
@@ -110,19 +149,19 @@ classdef RandomVibrato < handle
             
             %   Amplitude values for the vibrato oscillator (fades in/out).
             obj.VibModAmplitude = [zeros(obj.VibStart, 1); ...
-                obj.VibDepth * hamming(obj.VibratoLength); ...
+                obj.SamplesDeviation * hamming(obj.VibratoLength); ...
                 zeros(length(obj.Signal) - (obj.VibStart + obj.VibratoLength), 1)];
         end
         
         function Out = generateOutput(obj)
-            %   Step through Signal with modulated fractional indicies to
+            %   Step through signal with modulated fractional indicies to
             %   build vibrato'ed output.
             
             Out = zeros(size(obj.Signal));
             
             for n = 1:length(obj.Signal)
                 Out(n) = sincInterp(obj.Signal, n + obj.VibModAmplitude(n) * ...
-                    (1  - cos(2*pi*obj.VibRate*obj.VibIndex(n)/obj.fs)), ...
+                    (1  - cos(2*pi * obj.VibRate * obj.VibIndex(n)/obj.fs)), ...
                         obj.fs);
             end
         end
