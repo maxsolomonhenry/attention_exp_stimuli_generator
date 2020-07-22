@@ -9,14 +9,14 @@
 %   This class expects wavefiles named according to the following
 %   convention:
 %
-%   "M[melody number]_P[part number]_[Instrument abbreviation].wav"
+%   "M[melody number]_P[part number]_[instrument abbreviation].wav"
 %
 %   where:
 %
 %   melody number       -->     Unique identifier for duet melody.
 %   part number         -->     1 or 2, to indicate "top" or "bottom" of
 %                               staff.
-%   Instrument abbr.    -->     For the original experiment, either "Tpt"
+%   instrument abbr.    -->     For the original experiment, either "Tpt"
 %                               for trumpet, or "Vln" for violin. 
 %
 %           e.g., "M1_P1_Tpt.wav"
