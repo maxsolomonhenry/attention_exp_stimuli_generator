@@ -11,25 +11,29 @@ clearvars;
 %
 
 fs = 44100;
-N = 4*fs;
+Dur = 2;
+N = Dur*fs;
 f = 440;
 t = (0:N-1)/fs;
 
 x = zeros(N, 1);
-for i = 1:10
-    x = x + (1/i^3) * sin(2*pi* i*f *t + 2*pi*rand())';
+for i = 1:5
+    x = x + (1/i) * sin(2*pi*i*f*t + 2*pi*rand())';
 end
 
 %
 %   Example implementation.
 %
 
-Alpha = 0.01;
+Delta = 2;
 fm = 11;
+NumCycles = 3;
 
-VibGenerator = RandomVibrato(fs, fm, Alpha, 3, 1);
+
+Alpha = 2 ^ (Delta/12) - 1;
+VibGenerator = RandomVibrato(fs, fm, Alpha, NumCycles, 0.5);
 
 Out = VibGenerator.addVibrato(x);
 
 spectrogram(Out, hamming(1024), [], [], fs, 'yaxis');
-soundsc(Out, fs);
+sound(Out/max(abs(Out))*0.5, fs);

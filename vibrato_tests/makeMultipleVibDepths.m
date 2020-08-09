@@ -13,43 +13,43 @@
 
 clearvars;
 
-for StimPath = {'../raw_audio/pilot_clips/Tpt/', '../raw_audio/pilot_clips/Vln/'}
-    Filenames = dir([StimPath{1} '*.wav']);
-    [~, fs] = audioread(Filenames(1).name);     % Read first file to get sample rate.
 
-    Deltas = {0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
-    fm = 11;
-    NumCycles = 3;
-    
-    VibsDir = [StimPath{1} 'vibs/'];
-    mkdir(VibsDir);
-    fileID = fopen([VibsDir '/log.txt'],'w');
-    
-    for i = 1:length(Deltas)
-        disp(['Processing Delta = ' num2str(Deltas{i})]);
+StimPath = '../raw_audio/four_mels/';
+Filenames = dir([StimPath '*.wav']);
+[~, fs] = audioread(Filenames(1).name);     % Read first file to get sample rate.
 
-        Alpha = 2 ^ (Deltas{i}/12) - 1;
-        VibGenerator = RandomVibrato(fs, fm, Alpha, NumCycles, 0.75);
+Deltas = {0.1, 0.2, 0.3, 0.4, 0.5};
+fm = 11;
+NumCycles = 3;
 
-        for k = 1:length(Filenames)
-            [x, fs_] = audioread(Filenames(k).name);
+VibsDir = StimPath;
+mkdir(VibsDir);
+fileID = fopen([VibsDir '/vib_log.txt'],'w');
 
-            if fs_ ~= fs
-                continue
-            end
+for i = 1:length(Deltas)
+    disp(['Processing Delta = ' num2str(Deltas{i})]);
 
-            Out = VibGenerator.addVibrato(x);
+    Alpha = 2 ^ (Deltas{i}/12) - 1;
+    VibGenerator = RandomVibrato(fs, fm, Alpha, NumCycles, 0.75);
 
-            [~, Basename, ~] = fileparts(Filenames(k).name);
+    for k = 1:length(Filenames)
+        [x, fs_] = audioread(Filenames(k).name);
 
-            OutFilename = [Basename '_vib' num2str(Deltas{i}*100) '.wav'];
-            OutFilepath = [VibsDir '/' OutFilename];
-
-            fprintf(fileID,'%s\t%f\n', OutFilename, VibGenerator.VibStart/fs);
-
-            audiowrite(OutFilepath, Out, fs);
+        if fs_ ~= fs
+            continue
         end
+
+        Out = VibGenerator.addVibrato(x);
+
+        [~, Basename, ~] = fileparts(Filenames(k).name);
+
+        OutFilename = [Basename '_vib' num2str(Deltas{i}*100) '.wav'];
+        OutFilepath = [VibsDir '/' OutFilename];
+
+        fprintf(fileID,'%s\t%f\n', OutFilename, VibGenerator.VibStart/fs);
+
+        audiowrite(OutFilepath, Out, fs);
     end
+end
     
     fclose(fileID);
-end

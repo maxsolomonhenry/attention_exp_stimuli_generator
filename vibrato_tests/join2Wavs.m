@@ -1,5 +1,5 @@
 function join2Wavs(Filename1, Filename2, GapInSecs, CorrectResponse)
-    [~, Base1, Ext1] = fileparts(Filename1);
+    [Path, Base1, Ext1] = fileparts(Filename1);
     [~, Base2, Ext2] = fileparts(Filename2);
     
     if Ext1 ~= Ext2
@@ -10,7 +10,13 @@ function join2Wavs(Filename1, Filename2, GapInSecs, CorrectResponse)
         CorrectResponse = "";
     end
     
-    OutFilename = Base1 + "__" + Base2 + "__" + CorrectResponse + Ext1;
+    if isempty(Path)
+        Path = "";
+    else
+        Path = Path + "/";
+    end
+    
+    OutFilename = Path + Base1 + "__" + Base2 + "__" + CorrectResponse + Ext1;
 
     [x1, fs1] = audioread(Filename1);
     [x2, fs2] = audioread(Filename2);

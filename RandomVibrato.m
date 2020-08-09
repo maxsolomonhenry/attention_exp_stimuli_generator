@@ -14,7 +14,7 @@
 %   NoVibBuffer -->     Time, in seconds, at beginning and end
 %                       of signal that won't have vibrato.
 %
-%   sample deviation = Alpha * fs / VibRate, as per:
+%   sample deviation = (Alpha * fs) / (2 * pi * fm) , as per:
 %
 %   Dutilleux, P., M. Holters, S. Disch, and U. Zölzer. 2011. “Modulators 
 %       and Demodulators.” In DAFX: Digital audio effects, edited by Udo 
@@ -25,10 +25,6 @@
 
 
 classdef RandomVibrato < handle    
-%   TODO:   adjustForVibratoLength is VERY SLOW (14s).
-%           Alpha --> should be divided by two? (distance max to min dev.)
-%           Flux thresholding is broken.
-
     properties
         
         Signal;
@@ -47,16 +43,14 @@ classdef RandomVibrato < handle
         
         VibratoLength;
         NoVibBufSamps;
-        SteadySectionsTimeline;
-        AdjustedTimeline;
+        CandidateTimeline;
         VibStart;
         
-        InterpolatedFlux;
-        GatedFlux;
     end
     
     properties (Constant)
-        FLUX_THRESHOLD = 0.5;
+        AMP_ENV_SMOOTHING = 400;
+        AMP_THRESHOLD = 0.01;
     end
     
     methods
@@ -68,7 +62,7 @@ classdef RandomVibrato < handle
             obj.fs = fs;           
             obj.VibRate = VibRate;
 
-            obj.SamplesDeviation = Alpha * fs / VibRate;
+            obj.SamplesDeviation = (Alpha) * fs / (2 * pi * VibRate);
             obj.NoVibBufSamps = NoVibBuffer * obj.fs;
             obj.VibratoLength = floor(fs/obj.VibRate*Cycles);
         end
@@ -83,63 +77,57 @@ classdef RandomVibrato < handle
         end
         
         function findVibratoStart(obj)
-            obj.findSteadySections()
-            obj.adjustForVibratoLength()
-            obj.findRandomStartIndex()
+            obj.makeCandidateTimeline();
+            obj.findRandomStartIndex();
         end
         
-        function obj = findSteadySections(obj)
+        function obj = makeCandidateTimeline(obj)            
             %   Introduce "no vib buffer" at start/end.
-            obj.SteadySectionsTimeline = [zeros(obj.NoVibBufSamps, 1); ...
+            obj.CandidateTimeline = [zeros(obj.NoVibBufSamps, 1); ...
                 ones(length(obj.Signal) - 2 * obj.NoVibBufSamps, 1); ...
-                zeros(obj.NoVibBufSamps, 1)];
+                zeros(obj.NoVibBufSamps, 1)];   
             
-            obj.getGatedFlux();
+            Envelope = obj.traceEnvelope(obj.Signal);
+            AboveThreshold = (Envelope > obj.AMP_THRESHOLD);
             
-            %   Exclude regions aboe spectral flux threshold.
-            obj.SteadySectionsTimeline = obj.SteadySectionsTimeline .* ...
-                obj.GatedFlux;       
+            %   Don't place vibrato where signal is below amplitude threshold.
+            obj.CandidateTimeline = obj.CandidateTimeline .* AboveThreshold;
         end
         
-        function obj = getGatedFlux(obj)
-            obj.getInterpolatedSpecFlux();
-%             obj.InterpolatedFlux = [diff(obj.InterpolatedFlux, 1); 0];
-            obj.GatedFlux = abs(obj.InterpolatedFlux) < obj.FLUX_THRESHOLD;
-        end
-        
-        function obj = getInterpolatedSpecFlux(obj)
-            N = length(obj.Signal);
-            Flux = spectralFlux(obj.Signal, obj.fs);
-            HopSize = round(obj.fs*0.02);
-            obj.InterpolatedFlux = interp1(1:length(Flux), Flux, (1:N)/HopSize)';
-            obj.InterpolatedFlux = obj.InterpolatedFlux / ...
-                max(abs(obj.InterpolatedFlux));
-        end
-        
-        function obj = adjustForVibratoLength(obj)
-            %   Extends "no vibrato start zone" backwards to compensate for
-            %   vibrato length.
+        function Envelope = traceEnvelope(obj, Signal)
+            Analytic = hilbert(Signal);
+            EnvelopeApprox = abs(Analytic);
 
-            if obj.VibratoLength > obj.NoVibBufSamps
-                warning(['Vibrato length is longer than specified start buffer. ' ...
-                    'Buffer will be extended to length of vibrato.']);
-            end
+            M = obj.AMP_ENV_SMOOTHING;
+            b = 1/M * ones(M, 1);
+            Envelope = filter(b, 1, EnvelopeApprox);
             
-            obj.AdjustedTimeline = obj.SteadySectionsTimeline;
-            
-            for i = (1:obj.VibratoLength - 1)
-                obj.AdjustedTimeline = obj.AdjustedTimeline .* ...
-                    circshift(obj.SteadySectionsTimeline, -i);
-            end
-
+            % compensate for group delay
+            Envelope = circshift(Envelope, -floor(M/2));
+            Envelope = Envelope/max(abs(Envelope));
         end
         
         function obj = findRandomStartIndex(obj)
-            if any(obj.AdjustedTimeline)
-                obj.VibStart = obj.randomIndex(obj.AdjustedTimeline);
-            else
-                error('No candidate indecies for vibrato found.')
+            obj.VibStart = obj.randomIndex(obj.CandidateTimeline);
+        end
+        
+        function Out = randomIndex(obj, Timeline)
+            NonZeroIndicies = find(Timeline);
+            FoundAnIndex = false;
+            
+            for i = randperm(length(NonZeroIndicies))
+                %   Check for a length of 1's long enough for vibrato.
+                if prod(Timeline(i:i + obj.VibratoLength - 1) == 1)
+                    FoundAnIndex = true;
+                    break
+                end
             end
+            
+            if ~FoundAnIndex
+                error('No candidate indicies for vibrato found.')
+            end
+            
+            Out = NonZeroIndicies(i);
         end
         
         function obj = makeVibIndexAndAmplitude(obj)
@@ -169,13 +157,6 @@ classdef RandomVibrato < handle
     end
     
     methods(Static)
-        
-        function Out = randomIndex(Timeline)
-        NonZeroIndicies = find(Timeline);
-        i = randi(length(NonZeroIndicies));
-        Out = NonZeroIndicies(i);
-        end
-        
     end
     
 end

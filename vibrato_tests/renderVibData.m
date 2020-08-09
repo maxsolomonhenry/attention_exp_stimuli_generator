@@ -18,7 +18,7 @@ function renderVibData(Filename, FileKey)
     
     TrialNo = 0;
     
-    for Row = 8:43
+    for Row = 8:47
         TrialNo = TrialNo + 1;
         
         Stim = Table(Row, 'stimulus');
