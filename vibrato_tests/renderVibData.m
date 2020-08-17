@@ -1,8 +1,12 @@
-function renderVibData(Filename, FileKey)
+function renderVibData(Filename, FileKey, NumStim)
     RENDERED_DIR = 'rendered/';
     
     if ~exist(RENDERED_DIR, 'dir')
         mkdir(RENDERED_DIR);
+    end
+    
+    if ~exist('NumStim', 'var')
+        NumStim = 40;
     end
 
     Table = readtable(Filename);
@@ -18,7 +22,7 @@ function renderVibData(Filename, FileKey)
     
     TrialNo = 0;
     
-    for Row = 8:47
+    for Row = 8:(8 + NumStim - 1)
         TrialNo = TrialNo + 1;
         
         Stim = Table(Row, 'stimulus');
